@@ -32,6 +32,7 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { createRun } from '../api/client'
+import { assertShaFields } from '../utils/shaRequired'
 
 const router = useRouter()
 const message = useMessage()
@@ -65,7 +66,6 @@ async function submit() {
     message.warning('请填写名称')
     return
   }
-  const { assertShaFields } = await import('../utils/shaRequired')
   const check = assertShaFields(form.dataset_content_sha256, form.code_commit_sha)
   if (!check.ok) {
     message.warning(check.message)
@@ -73,7 +73,11 @@ async function submit() {
   }
   loading.value = true
   try {
-    const run = await createRun({ ...form })
+    const run = await createRun({
+      ...form,
+      dataset_content_sha256: form.dataset_content_sha256.trim(),
+      code_commit_sha: form.code_commit_sha.trim(),
+    })
     message.success('Run 已启动')
     router.push(`/runs/${run.id}`)
   } catch (e) {

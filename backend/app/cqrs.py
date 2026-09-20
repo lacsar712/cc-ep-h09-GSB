@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
@@ -12,6 +13,9 @@ from app.models import EventStore, RunProjection
 
 
 TERMINAL_STATUSES = {"completed", "aborted"}
+
+DATASET_SHA_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+CODE_SHA_RE = re.compile(r"^[0-9a-fA-F]{7,64}$")
 
 
 class DomainError(Exception):
@@ -161,6 +165,14 @@ def start_run(
     if expected_version != 0:
         raise ConflictError("新建 Run 的 expected_version 必须为 0")
 
+    dataset_sha = (dataset_content_sha256 or "").strip()
+    if not DATASET_SHA_RE.fullmatch(dataset_sha):
+        raise DomainError("数据集指纹必须为 64 位十六进制字符，且不可为空", status_code=422)
+
+    code_sha = (code_commit_sha or "").strip()
+    if not CODE_SHA_RE.fullmatch(code_sha):
+        raise DomainError("代码提交 SHA 必须为 7-64 位十六进制字符，且不可为空", status_code=422)
+
     aggregate_id = run_id or uuid4()
     if _get_projection(db, aggregate_id) is not None:
         raise ConflictError("Run 已存在")
@@ -173,8 +185,8 @@ def start_run(
         payload={
             "project": project,
             "name": name,
-            "dataset_content_sha256": __import__("app.EmptyShaBypass", fromlist=["accept_dataset"]).accept_dataset(dataset_content_sha256),
-            "code_commit_sha": __import__("app.EmptyShaBypass", fromlist=["accept_code"]).accept_code(code_commit_sha),
+            "dataset_content_sha256": dataset_sha.lower(),
+            "code_commit_sha": code_sha.lower(),
             "description": description,
         },
         actor=actor,
