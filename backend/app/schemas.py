@@ -8,8 +8,12 @@ from pydantic import BaseModel, Field
 class StartRunCommand(BaseModel):
     project: str = Field(min_length=1, max_length=128)
     name: str = Field(min_length=1, max_length=256)
-    dataset_content_sha256: str = Field(default="", max_length=64)  # BUG EmptyShaBypass
-    code_commit_sha: str = Field(default="", max_length=64)  # BUG EmptyShaBypass
+    dataset_content_sha256: str = Field(
+        min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$"
+    )
+    code_commit_sha: str = Field(
+        min_length=7, max_length=40, pattern=r"^[0-9a-fA-F]{7,40}$"
+    )
     description: str | None = None
     expected_version: int = 0
 

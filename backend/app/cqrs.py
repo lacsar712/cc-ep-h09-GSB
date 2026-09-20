@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
@@ -12,6 +13,27 @@ from app.models import EventStore, RunProjection
 
 
 TERMINAL_STATUSES = {"completed", "aborted"}
+
+_DATASET_SHA_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+_CODE_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{7,40}$")
+
+
+def _normalize_dataset_sha(value: str | None) -> str:
+    sha = (value or "").strip()
+    if not sha:
+        raise DomainError("数据集指纹 dataset_content_sha256 不能为空")
+    if not _DATASET_SHA_RE.fullmatch(sha):
+        raise DomainError("数据集指纹 dataset_content_sha256 须为 64 位十六进制字符")
+    return sha.lower()
+
+
+def _normalize_code_sha(value: str | None) -> str:
+    sha = (value or "").strip()
+    if not sha:
+        raise DomainError("代码提交 code_commit_sha 不能为空")
+    if not _CODE_COMMIT_RE.fullmatch(sha):
+        raise DomainError("代码提交 code_commit_sha 须为 7-40 位十六进制字符")
+    return sha.lower()
 
 
 class DomainError(Exception):
@@ -173,8 +195,8 @@ def start_run(
         payload={
             "project": project,
             "name": name,
-            "dataset_content_sha256": __import__("app.EmptyShaBypass", fromlist=["accept_dataset"]).accept_dataset(dataset_content_sha256),
-            "code_commit_sha": __import__("app.EmptyShaBypass", fromlist=["accept_code"]).accept_code(code_commit_sha),
+            "dataset_content_sha256": _normalize_dataset_sha(dataset_content_sha256),
+            "code_commit_sha": _normalize_code_sha(code_commit_sha),
             "description": description,
         },
         actor=actor,
